@@ -61,7 +61,11 @@ func Handle_Request(req events.APIGatewayProxyRequest) (*events.APIGatewayProxyR
 		}
 	}
 	if err = tukxdw.Execute(&trans); err == nil {
-		if trans.Workflows.Count == 1 && op != "" {
+		if trans.Workflows.Count == 0 {
+			return queryResponse(http.StatusOK, "0", tukcnst.TEXT_PLAIN)
+		}
+		if op != "" {
+			wfcount := strconv.Itoa(trans.Workflows.Count)
 			switch op {
 			case "status":
 				return queryResponse(http.StatusOK, trans.XDWState.Status, tukcnst.TEXT_PLAIN)
@@ -75,9 +79,10 @@ func Handle_Request(req events.APIGatewayProxyRequest) (*events.APIGatewayProxyR
 				return queryResponse(http.StatusOK, trans.XDWState.CompleteBy, tukcnst.TEXT_PLAIN)
 			case "updated":
 				return queryResponse(http.StatusOK, trans.XDWState.LatestWorkflowEventTime.String(), tukcnst.TEXT_PLAIN)
+			case "count":
+				return queryResponse(http.StatusOK, wfcount, tukcnst.TEXT_PLAIN)
 			}
 		}
-
 		rsp := XDW_Consumer_Rsp{
 			Workflows: trans.Workflows,
 			State:     trans.XDWState,
