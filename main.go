@@ -45,6 +45,7 @@ func Handle_Request(req events.APIGatewayProxyRequest) (*events.APIGatewayProxyR
 	log.Printf("Processing API Gateway %s Request Path %s", req.HTTPMethod, req.Path)
 	trans := tukxdw.Transaction{Actor: tukcnst.XDW_ACTOR_CONTENT_CONSUMER, XDWVersion: -1}
 	op := ""
+	contentType := tukcnst.TEXT_PLAIN
 	for key, value := range req.QueryStringParameters {
 		log.Printf("    %s: %s\n", key, value)
 		switch key {
@@ -58,6 +59,8 @@ func Handle_Request(req events.APIGatewayProxyRequest) (*events.APIGatewayProxyR
 			trans.NHS_ID = value
 		case tukcnst.TUK_EVENT_QUERY_PARAM_OP:
 			op = value
+		case tukcnst.TUK_EVENT_QUERY_PARAM_FORMAT:
+			contentType = value
 		}
 	}
 	if err = tukxdw.Execute(&trans); err == nil {
@@ -68,21 +71,22 @@ func Handle_Request(req events.APIGatewayProxyRequest) (*events.APIGatewayProxyR
 			wfcount := strconv.Itoa(trans.Workflows.Count)
 			switch op {
 			case "status":
-				return queryResponse(http.StatusOK, trans.XDWState.Status, tukcnst.TEXT_PLAIN)
+				return queryResponse(http.StatusOK, trans.XDWState.Status, contentType)
 			case "duration":
-				return queryResponse(http.StatusOK, trans.XDWState.PrettyWorkflowDuration, tukcnst.TEXT_PLAIN)
+				return queryResponse(http.StatusOK, trans.XDWState.PrettyWorkflowDuration, contentType)
 			case "isoverdue":
-				return queryResponse(http.StatusOK, strconv.FormatBool(trans.XDWState.IsOverdue), tukcnst.TEXT_PLAIN)
+				return queryResponse(http.StatusOK, strconv.FormatBool(trans.XDWState.IsOverdue), contentType)
 			case "created":
-				return queryResponse(http.StatusOK, trans.XDWState.Created, tukcnst.TEXT_PLAIN)
+				return queryResponse(http.StatusOK, trans.XDWState.Created, contentType)
 			case "completeby":
-				return queryResponse(http.StatusOK, trans.XDWState.CompleteBy, tukcnst.TEXT_PLAIN)
+				return queryResponse(http.StatusOK, trans.XDWState.CompleteBy, contentType)
 			case "updated":
-				return queryResponse(http.StatusOK, trans.XDWState.LatestWorkflowEventTime.String(), tukcnst.TEXT_PLAIN)
+				return queryResponse(http.StatusOK, trans.XDWState.LatestWorkflowEventTime.String(), contentType)
 			case "count":
-				return queryResponse(http.StatusOK, wfcount, tukcnst.TEXT_PLAIN)
+				return queryResponse(http.StatusOK, wfcount, contentType)
 			}
 		}
+		contentType = tukcnst.APPLICATION_JSON
 		rsp := XDW_Consumer_Rsp{
 			Workflows: trans.Workflows,
 			State:     trans.XDWState,
@@ -90,10 +94,10 @@ func Handle_Request(req events.APIGatewayProxyRequest) (*events.APIGatewayProxyR
 		}
 		var wfs []byte
 		if wfs, err = json.MarshalIndent(rsp, "", "  "); err == nil {
-			return queryResponse(http.StatusOK, string(wfs), tukcnst.APPLICATION_JSON)
+			return queryResponse(http.StatusOK, string(wfs), contentType)
 		}
 	}
-	return queryResponse(http.StatusInternalServerError, err.Error(), tukcnst.TEXT_PLAIN)
+	return queryResponse(http.StatusInternalServerError, err.Error(), contentType)
 }
 func setAwsResponseHeaders(contentType string) map[string]string {
 	awsHeaders := make(map[string]string)
