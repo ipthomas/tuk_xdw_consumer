@@ -7,6 +7,7 @@ package main
 
 import (
 	"encoding/json"
+	"encoding/xml"
 	"log"
 	"net/http"
 	"os"
@@ -23,10 +24,13 @@ import (
 
 var initSrvcs = false
 
-type XDW_Consumer_Rsp struct {
+type WorkflowsRsp struct {
 	Workflows tukdbint.Workflows
 	State     tukxdw.XDWState
 	Dashboard tukxdw.Dashboard
+}
+type WorkflowRsp struct {
+	Workflow tukxdw.XDWWorkflowDocument
 }
 
 func main() {
@@ -89,14 +93,22 @@ func Handle_Request(req events.APIGatewayProxyRequest) (*events.APIGatewayProxyR
 			}
 		}
 		contentType = tukcnst.APPLICATION_JSON
-		rsp := XDW_Consumer_Rsp{
-			Workflows: trans.Workflows,
-			State:     trans.XDWState,
-			Dashboard: trans.Dashboard,
-		}
 		var wfs []byte
-		if wfs, err = json.MarshalIndent(rsp, "", "  "); err == nil {
-			return queryResponse(http.StatusOK, string(wfs), contentType)
+		if trans.Workflows.Count == 1 {
+			rsp := WorkflowRsp{}
+			xml.Unmarshal([]byte(trans.Workflows.Workflows[1].XDW_Doc), &rsp.Workflow)
+			if wfs, err = json.MarshalIndent(rsp, "", "  "); err == nil {
+				return queryResponse(http.StatusOK, string(wfs), contentType)
+			}
+		} else {
+			rsp := WorkflowsRsp{
+				Workflows: trans.Workflows,
+				State:     trans.XDWState,
+				Dashboard: trans.Dashboard,
+			}
+			if wfs, err = json.MarshalIndent(rsp, "", "  "); err == nil {
+				return queryResponse(http.StatusOK, string(wfs), contentType)
+			}
 		}
 	}
 	return queryResponse(http.StatusInternalServerError, err.Error(), contentType)
