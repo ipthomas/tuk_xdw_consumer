@@ -32,6 +32,14 @@ type WorkflowsRsp struct {
 type WorkflowRsp struct {
 	Workflow tukxdw.XDWWorkflowDocument
 }
+type WorkflowsStateRsp struct {
+	Dashboard     tukxdw.Dashboard
+	WorkflowState []WorkflowState
+}
+type WorkflowState struct {
+	Workflow string
+	XDWState tukxdw.XDWState
+}
 
 func main() {
 	lambda.Start(Handle_Request)
@@ -90,6 +98,8 @@ func Handle_Request(req events.APIGatewayProxyRequest) (*events.APIGatewayProxyR
 				return queryResponse(http.StatusOK, trans.XDWState.LatestWorkflowEventTime.String(), contentType)
 			case "count":
 				return queryResponse(http.StatusOK, wfcount, contentType)
+			case "states":
+				return queryResponse(http.StatusOK, setWorkflowsStates(trans.Dashboard, trans.Workflows), tukcnst.APPLICATION_JSON)
 			}
 		}
 		contentType = tukcnst.APPLICATION_JSON
@@ -112,6 +122,34 @@ func Handle_Request(req events.APIGatewayProxyRequest) (*events.APIGatewayProxyR
 		}
 	}
 	return queryResponse(http.StatusInternalServerError, err.Error(), contentType)
+}
+func setWorkflowsStates(db tukxdw.Dashboard, wfs tukdbint.Workflows) string {
+	var wfstates []byte
+	var err error
+	rsp := WorkflowsStateRsp{Dashboard: db}
+	for _, wf := range wfs.Workflows {
+		trans := tukxdw.Transaction{}
+		trans.Actor = tukcnst.XDW_ACTOR_CONTENT_CONSUMER
+		trans.Pathway = wf.Pathway
+		trans.NHS_ID = wf.NHSId
+		trans.XDWVersion = wf.Version
+		if err := tukxdw.Execute(&trans); err != nil {
+			log.Println(err.Error())
+			return err.Error()
+		}
+		if trans.Workflows.Count == 1 {
+			wfState := WorkflowState{Workflow: wf.Pathway, XDWState: trans.XDWState}
+			rsp.WorkflowState = append(rsp.WorkflowState, wfState)
+		} else {
+			log.Printf("Duplicate workflows found for Workflow=%s NHS=%s Vers=%v, skipping.....", trans.Pathway, trans.NHS_ID, trans.XDWVersion)
+		}
+
+	}
+	if wfstates, err = json.MarshalIndent(rsp, "", "  "); err != nil {
+		log.Println(err.Error())
+		return err.Error()
+	}
+	return string(wfstates)
 }
 func setAwsResponseHeaders(contentType string) map[string]string {
 	awsHeaders := make(map[string]string)

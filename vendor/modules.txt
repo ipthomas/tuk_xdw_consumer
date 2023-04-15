@@ -29,6 +29,6 @@ github.com/ipthomas/tukpdq
 # github.com/ipthomas/tukutil v1.3.10
 ## explicit; go 1.19
 github.com/ipthomas/tukutil
-# github.com/ipthomas/tukxdw v1.3.16
+# github.com/ipthomas/tukxdw v1.3.17
 ## explicit; go 1.19
 github.com/ipthomas/tukxdw
